@@ -13,3 +13,4 @@ project ("PBFGroup_TestWork")
 
 # Включите подпроекты.
 add_subdirectory ("Client")
+add_subdirectory ("Server")
