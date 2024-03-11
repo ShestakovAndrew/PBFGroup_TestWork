@@ -3,7 +3,7 @@
 #
 
 # Добавьте источник в исполняемый файл этого проекта.
-add_executable (Client "Client.cpp" "Client.h")
+add_executable (Client "main.cpp" )
 
 if (CMAKE_VERSION VERSION_GREATER 3.12)
   set_property(TARGET Client PROPERTY CXX_STANDARD 20)
