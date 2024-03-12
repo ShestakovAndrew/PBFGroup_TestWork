@@ -153,7 +153,34 @@ int CServer::HandleConnections() noexcept
 	return 0;
 }
 
-int CServer::SendMessage(SOCKET receipientSocket, std::string const& message) noexcept
+void CServer::PrependMessageLength(std::string& message) noexcept
+{
+	std::string messageSizeStr = std::to_string(message.size());
+	while (messageSizeStr.size() < 4)
+	{
+		messageSizeStr = "0" + messageSizeStr;
+	}
+	message = messageSizeStr + message;
+}
+
+
+CServer::ConnectionInfo CServer::GetConnectionInfo(sockaddr_storage* addr) noexcept
+{
+	sockaddr_in* connectionAddress = reinterpret_cast<sockaddr_in*>(addr);
+
+	ConnectionInfo retConn;
+
+	retConn.isSuccessConnection = false;
+	char ipAddress[INET_ADDRSTRLEN];
+	inet_ntop(AF_INET, &connectionAddress->sin_addr, ipAddress, INET_ADDRSTRLEN);
+	retConn.address = std::string(ipAddress);
+	retConn.port = std::to_string(connectionAddress->sin_port);
+	retConn.isSuccessConnection = true;
+
+	return retConn;
+}
+
+int CServer::SendMessage(SOCKET recipientSocket, std::string const& message) noexcept
 {
 	std::string assembledMsg(message);
 	PrependMessageLength(assembledMsg);
@@ -162,10 +189,10 @@ int CServer::SendMessage(SOCKET receipientSocket, std::string const& message) no
 	size_t sentBytes = 0;
 	size_t sentN;
 
-	ConnectionInfo const& conn_info = m_connectedClients.at(receipientSocket);
+	ConnectionInfo const& conn_info = m_connectedClients.at(recipientSocket);
 	while (sentBytes < totalBytes)
 	{
-		sentN = send(receipientSocket, assembledMsg.data() + sentBytes, totalBytes - sentBytes, 0);
+		sentN = send(recipientSocket, assembledMsg.data() + sentBytes, totalBytes - sentBytes, 0);
 		if (sentN == -1) return sentN;
 		sentBytes += sentN;
 	}

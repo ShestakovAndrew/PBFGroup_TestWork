@@ -18,39 +18,6 @@ namespace
 	using SOCKET = int;
 
 	const int MAX_DATA_BUFFER_SIZE = 4096;
-
-	void PrependMessageLength(std::string& message) 
-	{
-		std::string messageSizeStr = std::to_string(message.size());
-		while (messageSizeStr.size() < 4)
-		{
-			messageSizeStr = "0" + messageSizeStr;
-		}
-		message = messageSizeStr + message;
-	}
-
-	struct ConnectionInfo
-	{
-		bool success;
-		std::string address;
-		std::string port;
-	};
-
-	inline static ConnectionInfo GetConnectionInfo(sockaddr_storage* addr)
-	{
-		sockaddr_in* connectionAddress = reinterpret_cast<sockaddr_in*>(addr);
-
-		ConnectionInfo retConn;
-		retConn.success = false;
-
-		char ipAddress[INET_ADDRSTRLEN];
-		inet_ntop(AF_INET, &connectionAddress->sin_addr, ipAddress, INET_ADDRSTRLEN);
-		retConn.address = std::string(ipAddress);
-		retConn.port = std::to_string(connectionAddress->sin_port);
-		retConn.success = true;
-
-		return retConn;
-	}
 }
 
 class CServer
@@ -63,11 +30,18 @@ public:
 
 	~CServer();
 
+	struct ConnectionInfo
+	{
+		bool isSuccessConnection;
+		std::string address;
+		std::string port;
+	};
+
 	int Start() noexcept;
 	void Shutdown() noexcept;
 
 private:
-	SOCKET  CreateServerSocket(addrinfo* bind_address) noexcept;
+	SOCKET CreateServerSocket(addrinfo* bind_address) noexcept;
 	addrinfo* GetServerLocalAddress() noexcept;
 	int ConfigureServerSocket(SOCKET serverSocket) noexcept;
 
@@ -78,6 +52,9 @@ private:
 	int AcceptConnection() noexcept;
 	void DisconnectClient(SOCKET socket) noexcept;
 	int HandleConnections() noexcept;
+
+	void PrependMessageLength(std::string& message) noexcept;
+	ConnectionInfo GetConnectionInfo(sockaddr_storage* addr) noexcept;
 
 	uint16_t m_serverPort;
 
