@@ -1,7 +1,3 @@
-#include <iostream>
-#include <cstring>
-#include <fstream>
-
 #include "CServer.h"
 
 CServer::CServer(uint16_t serverPort)
@@ -135,7 +131,7 @@ int CServer::HandleConnections() noexcept
 			{
 				if (socket == m_serverSocket)
 				{
-					CHECK(AcceptConnection(), "Error accept connection");
+					if (AcceptConnection() == -1) return -1;
 				}
 				else
 				{
@@ -169,7 +165,6 @@ void CServer::PrependMessageLength(std::string& message) noexcept
 CServer::ConnectionInfo CServer::GetConnectionInfo(sockaddr_storage* addr) noexcept
 {
 	sockaddr_in* connectionAddress = reinterpret_cast<sockaddr_in*>(addr);
-
 	ConnectionInfo retConn;
 
 	retConn.isSuccessConnection = false;
@@ -193,9 +188,9 @@ int CServer::ReceiveMessage(SOCKET senderSocket, char* writableBuffer) noexcept
 	int recvBytes = recv(senderSocket, messageSizeStr, sizeof(messageSizeStr) - 1, 0);
 	if (recvBytes <= 0) return recvBytes;
 
-	for (const char c : std::string(messageSizeStr))
+	for (const char ch : std::string(messageSizeStr))
 	{
-		if (!std::isdigit(c)) return -1;
+		if (!std::isdigit(ch)) return -1;
 	}
 
 	int packetLength = std::atoi(messageSizeStr);

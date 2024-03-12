@@ -27,7 +27,7 @@ int main(int argc, char* argv[])
 
 		if (server.Start() == -1) 
 		{
-			return 1;
+			std::cout << "Server close." << std::endl;
 		}
 	}
 	catch (std::exception const& error)

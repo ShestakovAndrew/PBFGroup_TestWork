@@ -1,8 +1,8 @@
 #pragma once
+#include <iostream>
+#include <cstring>
 #include <unordered_map>
 #include <fstream>
-#include <cstdint>
-#include <memory>
 
 #include <sys/socket.h>
 #include <sys/types.h>
