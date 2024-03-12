@@ -1,5 +1,6 @@
 #include <iostream>
 #include <cstring>
+#include <fstream>
 
 #include "CServer.h"
 
@@ -19,12 +20,14 @@ int CServer::Start() noexcept
 	if (!serverAddr) return -1;
 
 	m_serverSocket = CreateServerSocket(serverAddr);
-	CHECK(m_serverSocket, "Error create socket");
+	CHECK(m_serverSocket, "Error create socket.");
 	freeaddrinfo(serverAddr);
 
 	FD_ZERO(&m_pollingSocketSet);
 	FD_SET(m_serverSocket, &m_pollingSocketSet);
 	m_maxSocket = m_serverSocket;
+
+	m_logFile.open("log.txt", std::ios::app);
 
 	return HandleConnections();
 }
@@ -32,6 +35,7 @@ int CServer::Start() noexcept
 void CServer::Shutdown() noexcept
 {
 	close(m_serverSocket);
+	m_logFile.close();
 }
 
 SOCKET CServer::CreateServerSocket(addrinfo* bindAddress) noexcept
@@ -133,19 +137,18 @@ int CServer::HandleConnections() noexcept
 				{
 					CHECK(AcceptConnection(), "Error accept connection");
 				}
-				else 
+				else
 				{
-					char msgBuffer[MAX_DATA_BUFFER_SIZE];
-					memset(msgBuffer, 0x00, MAX_DATA_BUFFER_SIZE);
-					int recvBytes = ReceiveMessage(socket, msgBuffer);
+					char messageBuffer[MAX_DATA_BUFFER_SIZE];
+					memset(messageBuffer, 0x00, MAX_DATA_BUFFER_SIZE);
 
+					int recvBytes = ReceiveMessage(socket, messageBuffer);
 					if (recvBytes <= 0)
 					{
 						DisconnectClient(socket);
 						continue;
 					}
-					std::string msgStr(msgBuffer);
-					BroadcastMessage(m_connectedClients.at(socket), msgStr);
+					m_logFile << std::string(messageBuffer) << std::endl;
 				}
 			}
 		}
@@ -163,7 +166,6 @@ void CServer::PrependMessageLength(std::string& message) noexcept
 	message = messageSizeStr + message;
 }
 
-
 CServer::ConnectionInfo CServer::GetConnectionInfo(sockaddr_storage* addr) noexcept
 {
 	sockaddr_in* connectionAddress = reinterpret_cast<sockaddr_in*>(addr);
@@ -178,39 +180,6 @@ CServer::ConnectionInfo CServer::GetConnectionInfo(sockaddr_storage* addr) noexc
 	retConn.isSuccessConnection = true;
 
 	return retConn;
-}
-
-int CServer::SendMessage(SOCKET recipientSocket, std::string const& message) noexcept
-{
-	std::string assembledMsg(message);
-	PrependMessageLength(assembledMsg);
-
-	size_t totalBytes = assembledMsg.size();
-	size_t sentBytes = 0;
-	size_t sentN;
-
-	ConnectionInfo const& conn_info = m_connectedClients.at(recipientSocket);
-	while (sentBytes < totalBytes)
-	{
-		sentN = send(recipientSocket, assembledMsg.data() + sentBytes, totalBytes - sentBytes, 0);
-		if (sentN == -1) return sentN;
-		sentBytes += sentN;
-	}
-
-	return sentBytes;
-}
-
-int CServer::BroadcastMessage(ConnectionInfo const& connectionFrom, std::string const& message) noexcept
-{
-	for (const auto& [socket, clientInfo] : m_connectedClients) 
-	{
-		if (SendMessage(socket, message) == -1)
-		{
-			DisconnectClient(socket);
-			return -1;
-		}
-	}
-	return 0;
 }
 
 int CServer::ReceiveMessage(SOCKET senderSocket, char* writableBuffer) noexcept

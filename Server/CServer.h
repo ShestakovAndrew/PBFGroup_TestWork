@@ -1,7 +1,8 @@
 #pragma once
+#include <unordered_map>
+#include <fstream>
 #include <cstdint>
 #include <memory>
-#include <unordered_map>
 
 #include <sys/socket.h>
 #include <sys/types.h>
@@ -45,8 +46,6 @@ private:
 	addrinfo* GetServerLocalAddress() noexcept;
 	int ConfigureServerSocket(SOCKET serverSocket) noexcept;
 
-	int SendMessage(SOCKET receipientSocket, std::string const& message) noexcept;
-	int BroadcastMessage(ConnectionInfo const& connectionFrom, std::string const& message) noexcept;
 	int ReceiveMessage(SOCKET senderSocket, char* writableBuffer) noexcept;
 
 	int AcceptConnection() noexcept;
@@ -57,7 +56,7 @@ private:
 	ConnectionInfo GetConnectionInfo(sockaddr_storage* addr) noexcept;
 
 	uint16_t m_serverPort;
-
+	std::ofstream m_logFile;
 	SOCKET m_serverSocket;
 	SOCKET m_maxSocket;
 	fd_set m_pollingSocketSet;
