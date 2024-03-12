@@ -1,11 +1,12 @@
-#include <iomanip>
 #include <iostream>
+#include <chrono>
 #include <thread>
 
+#include "date.h"
 #include "CClient.h"
 
-CClient::CClient(std::string clientName, uint16_t serverPort)
-	: m_clientName(clientName), m_serverPort(serverPort), m_connectionTimeout(0)
+CClient::CClient(std::string clientName, uint16_t serverPort, size_t connectionTimeout)
+	: m_clientName(clientName), m_serverPort(serverPort), m_connectionTimeout(connectionTimeout)
 {
 }
 
@@ -35,19 +36,6 @@ int CClient::Start() noexcept
 void CClient::Disconnect() noexcept
 {
 	close(m_clientSocket);
-}
-
-void CClient::SetConnectionTimeout(size_t connectionTimeout) noexcept
-{
-	if (m_connectionTimeout != connectionTimeout)
-	{
-		m_connectionTimeout = connectionTimeout;
-	}
-}
-
-size_t CClient::GetConnectionTimeout() noexcept
-{
-	return m_connectionTimeout;
 }
 
 addrinfo* CClient::ResolveConnectionAddress() noexcept
@@ -80,13 +68,6 @@ SOCKET CClient::CreateConnectionSocket(addrinfo* connectionAddress) noexcept
 	return newConnectionSocket;
 }
 
-void CClient::PrintInputPrompt() const noexcept
-{
-	std::cin.clear();
-	std::cout << " >>> ";
-	std::cout.flush();
-}
-
 int CClient::SendMessage(std::string const& message) noexcept
 {
 	std::string assembledMsg(message);
@@ -106,41 +87,17 @@ int CClient::SendMessage(std::string const& message) noexcept
 	return sentBytes;
 }
 
-int CClient::ReceiveMessage(char* writableBuff) noexcept
+int CClient::InputHandler() noexcept
 {
-	char msgLengthStr[5];
-	memset(msgLengthStr, 0x00, sizeof(msgLengthStr));
-	msgLengthStr[4] = '\0';
+	using namespace date;
 
-	int recvBytes = recv(m_clientSocket, msgLengthStr, sizeof(msgLengthStr) - 1, 0);
-	if (recvBytes <= 0) return recvBytes;
-
-	for (const char ch : std::string(msgLengthStr))
+	while (true)
 	{
-		if (!std::isdigit(ch)) return -1;
-	}
+		sleep(m_connectionTimeout);
 
-	int packetLength = std::atoi(msgLengthStr);
-	recvBytes = recv(m_clientSocket, writableBuff, packetLength, 0);
-	if (recvBytes <= 0) return recvBytes;
-
-	return recvBytes;
-}
-
-int CClient::InputHandler()
-{
-	while (true) 
-	{
-		char msgBuffer[MAX_DATA_BUFFER_SIZE];
-		PrintInputPrompt();
-
-		std::fgets(msgBuffer, MAX_DATA_BUFFER_SIZE, stdin);
-
-		std::string message_str(msgBuffer);
-		message_str.pop_back();
-		if (SendMessage(message_str) == -1) std::exit(1);
-
-		memset(msgBuffer, 0x00, MAX_DATA_BUFFER_SIZE);
+		std::ostringstream oss;
+		oss << "[" << std::chrono::system_clock::now() << "] " << m_clientName << std::endl;
+		if (SendMessage(oss.str()) == -1) std::exit(1);
 	}
 }
 
@@ -149,17 +106,7 @@ int CClient::HandleConnection() noexcept
 	std::thread inputWorkerThread(&CClient::InputHandler, this);
 	inputWorkerThread.detach();
 
-	while (true) 
-	{
-		char msgBuffer[MAX_DATA_BUFFER_SIZE];
-		memset(msgBuffer, 0x00, sizeof(msgBuffer));
-
-		int recvBytes = ReceiveMessage(msgBuffer);
-		if (recvBytes <= 0) std::exit(1);
-		std::cout << msgBuffer << std::endl;
-
-		PrintInputPrompt();
-	}
+	while (true) {}
 }
 
 void CClient::PrependMessageLength(std::string& message) noexcept

@@ -21,7 +21,7 @@ namespace
 class CClient
 {
 public:
-	CClient(std::string clientName, uint16_t serverPort);
+	CClient(std::string clientName, uint16_t serverPort, size_t connectionTimeout);
 
 	CClient(CClient const& other) = delete;
 	CClient& operator=(CClient const& other) = delete;
@@ -31,19 +31,13 @@ public:
 	int Start() noexcept;
 	void Disconnect() noexcept;
 
-	void SetConnectionTimeout(size_t connectionTimeout) noexcept;
-	size_t GetConnectionTimeout() noexcept;
-
 private:
 	addrinfo* ResolveConnectionAddress() noexcept;
 	SOCKET CreateConnectionSocket(addrinfo* conn_addr) noexcept;
-	
-	void PrintInputPrompt() const noexcept;
 
-	int SendMessage(const std::string& message) noexcept;
-	int ReceiveMessage(char* writable_buff) noexcept;
+	int SendMessage(std::string const& message) noexcept;
 
-	int InputHandler();
+	int InputHandler() noexcept;
 	int HandleConnection() noexcept;
 
 	void PrependMessageLength(std::string& message) noexcept;

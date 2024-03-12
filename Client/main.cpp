@@ -27,19 +27,18 @@ int main(int argc, char* argv[])
 	try
 	{
 		ValidateCountArguments(argc);
+
 		uint16_t serverPort = GetServerPort(argv[2]);
 		size_t connectionTimeout = GetConnectionTimeout(argv[3]);
 		std::string clientName(argv[1]);
 
-		CClient client(clientName, serverPort);
-		client.SetConnectionTimeout(connectionTimeout);
-
+		CClient client(clientName, serverPort, connectionTimeout);
 		if (client.Start() == -1) 
 		{
-			return 1;
+			std::cout << "Client " << clientName << " disconnected." << std::endl;
 		}
 	}
-	catch (std::exception const& error)
+	catch (std::invalid_argument const& error)
 	{
 		std::cout << error.what() << std::endl;
 	}
