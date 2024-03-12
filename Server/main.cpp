@@ -24,7 +24,11 @@ int main(int argc, char* argv[])
 		uint16_t serverPort = GetServerPort(argv[1]);
 
 		CServer server(serverPort);
-		server.StartListen();
+
+		if (server.Start() == -1) 
+		{
+			return 1;
+		}
 	}
 	catch (std::exception const& error)
 	{
