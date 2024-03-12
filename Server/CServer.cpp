@@ -51,21 +51,21 @@ SOCKET CServer::CreateServerSocket(addrinfo* bindAddress) noexcept
 		"Failed to bind server socket to address."
 	);
 
-	CHECK(ConfigureServerSocket(), "Error configure server socket.");
+	CHECK(ConfigureServerSocket(serverSocket), "Error configure server socket.");
 
 	return serverSocket;
 }
 
-int CServer::ConfigureServerSocket() noexcept
+int CServer::ConfigureServerSocket(SOCKET serverSocket) noexcept
 {
 	int settingVariable = 1;
 
 	CHECK(
-		setsockopt(m_serverSocket, SOL_SOCKET, SO_REUSEADDR, &settingVariable, sizeof(settingVariable)),
+		setsockopt(serverSocket, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &settingVariable, sizeof(settingVariable)),
 		"Failed to set socket options."
 	);
 
-	CHECK(listen(m_serverSocket, SOMAXCONN), "Failed to activate socket listener.");
+	CHECK(listen(serverSocket, SOMAXCONN), "Failed to activate socket listener.");
 
 	return 0;
 }
@@ -109,7 +109,6 @@ int CServer::AcceptConnection() noexcept
 
 void CServer::DisconnectClient(SOCKET socket) noexcept
 {
-	ConnectionInfo conn_info = m_connectedClients.at(socket);
 	close(socket);
 	m_connectedClients.erase(socket);
 	FD_CLR(socket, &m_pollingSocketSet);

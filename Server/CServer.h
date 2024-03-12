@@ -19,18 +19,6 @@ namespace
 
 	const int MAX_DATA_BUFFER_SIZE = 4096;
 
-	struct ConnectionInfo
-	{
-		bool success;
-		std::string address;
-		std::string port;
-
-		std::string ToString() const noexcept
-		{
-			return address + ":" + port;
-		}
-	};
-
 	void PrependMessageLength(std::string& message) 
 	{
 		std::string messageSizeStr = std::to_string(message.size());
@@ -41,19 +29,24 @@ namespace
 		message = messageSizeStr + message;
 	}
 
+	struct ConnectionInfo
+	{
+		bool success;
+		std::string address;
+		std::string port;
+	};
+
 	inline static ConnectionInfo GetConnectionInfo(sockaddr_storage* addr)
 	{
-		sockaddr_in* connAddr = reinterpret_cast<sockaddr_in*>(addr);
+		sockaddr_in* connectionAddress = reinterpret_cast<sockaddr_in*>(addr);
 
 		ConnectionInfo retConn;
 		retConn.success = false;
 
-		char ip_addr[INET_ADDRSTRLEN];
-
-		inet_ntop(AF_INET, &connAddr->sin_addr, ip_addr, INET_ADDRSTRLEN);
-
-		retConn.address = std::string(ip_addr);
-		retConn.port = std::to_string(connAddr->sin_port);
+		char ipAddress[INET_ADDRSTRLEN];
+		inet_ntop(AF_INET, &connectionAddress->sin_addr, ipAddress, INET_ADDRSTRLEN);
+		retConn.address = std::string(ipAddress);
+		retConn.port = std::to_string(connectionAddress->sin_port);
 		retConn.success = true;
 
 		return retConn;
@@ -76,7 +69,7 @@ public:
 private:
 	SOCKET  CreateServerSocket(addrinfo* bind_address) noexcept;
 	addrinfo* GetServerLocalAddress() noexcept;
-	int ConfigureServerSocket() noexcept;
+	int ConfigureServerSocket(SOCKET serverSocket) noexcept;
 
 	int SendMessage(SOCKET receipientSocket, std::string const& message) noexcept;
 	int BroadcastMessage(ConnectionInfo const& connectionFrom, std::string const& message) noexcept;
