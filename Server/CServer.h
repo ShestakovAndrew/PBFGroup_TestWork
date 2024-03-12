@@ -10,7 +10,8 @@
 #include <netinet/in.h>
 #include <netdb.h>
 #include <unistd.h>
-#include <errno.h>
+
+#define CHECK(val, msg) if (val == -1) { std::cout << msg << std::endl;	return -1; }
 
 namespace
 {
@@ -69,22 +70,24 @@ public:
 
 	~CServer();
 
-	int Start();
-	void Shutdown();
+	int Start() noexcept;
+	void Shutdown() noexcept;
 
 private:
-	void CreateServerSocket(addrinfo* bind_address);
-	void ConfigureServerSocket();
-	addrinfo* GetServerLocalAddress();
-	void AcceptConnection();
-	void DisconnectClient(SOCKET socket) noexcept;
-	int HandleConnections() noexcept;
+	SOCKET  CreateServerSocket(addrinfo* bind_address) noexcept;
+	addrinfo* GetServerLocalAddress() noexcept;
+	int ConfigureServerSocket() noexcept;
 
 	int SendMessage(SOCKET receipientSocket, std::string const& message) noexcept;
 	int BroadcastMessage(ConnectionInfo const& connectionFrom, std::string const& message) noexcept;
 	int ReceiveMessage(SOCKET senderSocket, char* writableBuffer) noexcept;
 
+	int AcceptConnection() noexcept;
+	void DisconnectClient(SOCKET socket) noexcept;
+	int HandleConnections() noexcept;
+
 	uint16_t m_serverPort;
+
 	SOCKET m_serverSocket;
 	SOCKET m_maxSocket;
 	fd_set m_pollingSocketSet;

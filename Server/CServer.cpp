@@ -10,13 +10,16 @@ CServer::CServer(uint16_t serverPort)
 
 CServer::~CServer()
 {
-
+	Shutdown();
 }
 
-int CServer::Start()
+int CServer::Start() noexcept
 {
 	addrinfo* serverAddr = GetServerLocalAddress();
-	CreateServerSocket(serverAddr);
+	if (!serverAddr) return -1;
+
+	m_serverSocket = CreateServerSocket(serverAddr);
+	CHECK(m_serverSocket, "Error create socket");
 	freeaddrinfo(serverAddr);
 
 	FD_ZERO(&m_pollingSocketSet);
@@ -26,68 +29,64 @@ int CServer::Start()
 	return HandleConnections();
 }
 
-void CServer::Shutdown()
+void CServer::Shutdown() noexcept
 {
 	close(m_serverSocket);
 }
 
-void CServer::CreateServerSocket(addrinfo* bindAddress)
+SOCKET CServer::CreateServerSocket(addrinfo* bindAddress) noexcept
 {
-	if (!bindAddress)
-	{
-		throw std::logic_error("bindAddress is NULL.");
-	}
+	if (!bindAddress) return -1;
 
-	m_serverSocket = socket(
+	SOCKET serverSocket = socket(
 		bindAddress->ai_family, 
 		bindAddress->ai_socktype, 
 		bindAddress->ai_protocol
 	);
 
-	if (m_serverSocket == -1)
-	{
-		throw std::logic_error("Failed to create server socket.");
-	}
+	CHECK(serverSocket, "Failed to create server socket.");
 
-	if (bind(m_serverSocket, bindAddress->ai_addr, bindAddress->ai_addrlen) == -1)
-	{
-		throw std::logic_error("Failed to bind server socket to address.");
-	}
+	CHECK(
+		bind(serverSocket, bindAddress->ai_addr, bindAddress->ai_addrlen),
+		"Failed to bind server socket to address."
+	);
 
-	ConfigureServerSocket();
+	CHECK(ConfigureServerSocket(), "Error configure server socket.");
+
+	return serverSocket;
 }
 
-void CServer::ConfigureServerSocket()
+int CServer::ConfigureServerSocket() noexcept
 {
-	int yes = 1;
+	int settingVariable = 1;
 
-	if (setsockopt(m_serverSocket, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(yes)) == -1)
-	{
-		throw std::logic_error("Failed to set socket options.");
-	}
+	CHECK(
+		setsockopt(m_serverSocket, SOL_SOCKET, SO_REUSEADDR, &settingVariable, sizeof(settingVariable)),
+		"Failed to set socket options."
+	);
 
-	if (listen(m_serverSocket, SOMAXCONN) == -1)
-	{
-		throw std::logic_error("Failed to activate socket listener.");
-	}
+	CHECK(listen(m_serverSocket, SOMAXCONN), "Failed to activate socket listener.");
+
+	return 0;
 }
 
-addrinfo* CServer::GetServerLocalAddress()
+addrinfo* CServer::GetServerLocalAddress() noexcept
 {
-	addrinfo hints, * bindAddress;
+	addrinfo hints, *bindAddress;
 	memset(&hints, 0x00, sizeof(hints));
 	hints.ai_family = AF_INET;
 	hints.ai_socktype = SOCK_STREAM;
 
 	if (getaddrinfo("127.0.0.1", std::to_string(m_serverPort).c_str(), &hints, &bindAddress) != 0)
 	{
-		throw std::logic_error("Failed to resolve server's local address.");
+		std::cout << "Failed to resolve server's local address." << std::endl;
+		return nullptr;
 	}
 
 	return bindAddress;
 }
 
-void CServer::AcceptConnection()
+int CServer::AcceptConnection() noexcept
 {
 	sockaddr_storage connectionAddress;
 	socklen_t connectionLength = sizeof(connectionAddress);
@@ -95,10 +94,7 @@ void CServer::AcceptConnection()
 	SOCKET newConnection = accept(m_serverSocket, reinterpret_cast<sockaddr*>(&connectionAddress), &connectionLength);
 	ConnectionInfo newConnectionInfo = GetConnectionInfo(&connectionAddress);
 	
-	if (newConnection == -1) 
-	{
-		throw std::logic_error("Failed to accept new connection.");
-	}
+	CHECK(newConnection, "Failed to accept new connection.");
 
 	if (newConnection > m_maxSocket) 
 	{
@@ -107,6 +103,8 @@ void CServer::AcceptConnection()
 
 	FD_SET(newConnection, &m_pollingSocketSet);
 	m_connectedClients[newConnection] = newConnectionInfo;
+
+	return 0;
 }
 
 void CServer::DisconnectClient(SOCKET socket) noexcept
@@ -117,16 +115,16 @@ void CServer::DisconnectClient(SOCKET socket) noexcept
 	FD_CLR(socket, &m_pollingSocketSet);
 }
 
-int CServer::HandleConnections()
+int CServer::HandleConnections() noexcept
 {
 	while (true) 
 	{
 		fd_set pollingSetCopy = m_pollingSocketSet;
 
-		if (select(m_maxSocket + 1, &pollingSetCopy, NULL, NULL, NULL) < 0)
-		{
-			throw std::logic_error("Failed to fetch data on the server socket.");
-		}
+		CHECK(
+			select(m_maxSocket + 1, &pollingSetCopy, NULL, NULL, NULL),
+			"Failed to fetch data on the server socket."
+		);
 
 		for (SOCKET socket = 1; socket <= m_maxSocket + 1; ++socket)
 		{
@@ -134,7 +132,7 @@ int CServer::HandleConnections()
 			{
 				if (socket == m_serverSocket)
 				{
-					AcceptConnection();
+					CHECK(AcceptConnection(), "Error accept connection");
 				}
 				else 
 				{
@@ -148,8 +146,7 @@ int CServer::HandleConnections()
 						continue;
 					}
 					std::string msgStr(msgBuffer);
-					BroadcastMessage(msgStr, m_connectedClients.at(socket));
-
+					BroadcastMessage(m_connectedClients.at(socket), msgStr);
 				}
 			}
 		}
@@ -159,7 +156,7 @@ int CServer::HandleConnections()
 
 int CServer::SendMessage(SOCKET receipientSocket, std::string const& message) noexcept
 {
-	std::string assembledMsg = message;
+	std::string assembledMsg(message);
 	PrependMessageLength(assembledMsg);
 
 	size_t totalBytes = assembledMsg.size();
@@ -193,8 +190,6 @@ int CServer::BroadcastMessage(ConnectionInfo const& connectionFrom, std::string 
 int CServer::ReceiveMessage(SOCKET senderSocket, char* writableBuffer) noexcept
 {
 	if (!writableBuffer) return -1;
-
-	ConnectionInfo const& conn_info = m_connectedClients.at(senderSocket);
 
 	char messageSizeStr[5];
 	memset(messageSizeStr, 0x00, sizeof(messageSizeStr));
