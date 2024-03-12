@@ -16,16 +16,6 @@ namespace
 	using SOCKET = int;
 
 	const int MAX_DATA_BUFFER_SIZE = 4096;
-
-	void PrependMessageLength(std::string& message) 
-	{
-		std::string messageSizeStr = std::to_string(message.size());
-		while (messageSizeStr.size() < 4) 
-		{
-			messageSizeStr = "0" + messageSizeStr;
-		}
-		message = messageSizeStr + message;
-	}
 }
 
 class CClient
@@ -55,6 +45,8 @@ private:
 
 	int InputHandler();
 	int HandleConnection() noexcept;
+
+	void PrependMessageLength(std::string& message) noexcept;
 
 	std::string m_clientName;
 	uint16_t m_serverPort;

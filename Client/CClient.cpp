@@ -161,3 +161,13 @@ int CClient::HandleConnection() noexcept
 		PrintInputPrompt();
 	}
 }
+
+void CClient::PrependMessageLength(std::string& message) noexcept
+{
+	std::string messageSizeStr = std::to_string(message.size());
+	while (messageSizeStr.size() < 4)
+	{
+		messageSizeStr = "0" + messageSizeStr;
+	}
+	message = messageSizeStr + message;
+}
