@@ -33,8 +33,11 @@ int main(int argc, char* argv[])
 
 		CClient client(clientName, serverPort);
 		client.SetConnectionTimeout(connectionTimeout);
-		client.Connect();
-		client.StartSending();
+
+		if (client.Start() == -1) 
+		{
+			return 1;
+		}
 	}
 	catch (std::exception const& error)
 	{

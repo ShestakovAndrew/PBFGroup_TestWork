@@ -1,30 +1,64 @@
 #pragma once
-#include <string>
+#include <cstring>
 
 #include <sys/socket.h>
 #include <sys/types.h>
-#include <netdb.h>
+#include <sys/select.h>
 #include <arpa/inet.h>
+#include <netinet/in.h>
+#include <netdb.h>
 #include <unistd.h>
+
+#define CHECK(val, msg) if (val == -1) { std::cout << msg << std::endl;	return -1; }
+
+namespace
+{
+	using SOCKET = int;
+
+	const int MAX_DATA_BUFFER_SIZE = 4096;
+
+	void PrependMessageLength(std::string& message) 
+	{
+		std::string messageSizeStr = std::to_string(message.size());
+		while (messageSizeStr.size() < 4) 
+		{
+			messageSizeStr = "0" + messageSizeStr;
+		}
+		message = messageSizeStr + message;
+	}
+}
 
 class CClient
 {
 public:
 	CClient(std::string clientName, uint16_t serverPort);
 
-	void SetConnectionTimeout(size_t connectionTimeout);
-	size_t GetConnectionTimeout();
-	void Connect();
-	void StartSending();
+	CClient(CClient const& other) = delete;
+	CClient& operator=(CClient const& other) = delete;
+
+	~CClient();
+
+	int Start() noexcept;
+	void Disconnect() noexcept;
+
+	void SetConnectionTimeout(size_t connectionTimeout) noexcept;
+	size_t GetConnectionTimeout() noexcept;
 
 private:
-	void CreateSocket();
-	void SetSocketAddress();
+	addrinfo* ResolveConnectionAddress() noexcept;
+	SOCKET CreateConnectionSocket(addrinfo* conn_addr) noexcept;
+	
+	void PrintInputPrompt() const noexcept;
+
+	int SendMessage(const std::string& message) noexcept;
+	int ReceiveMessage(char* writable_buff) noexcept;
+
+	int InputHandler();
+	int HandleConnection() noexcept;
 
 	std::string m_clientName;
 	uint16_t m_serverPort;
 	size_t m_connectionTimeout;
 
-	int m_socketDesc;
-	sockaddr_in m_socketAddr;
+	SOCKET m_clientSocket;
 };
